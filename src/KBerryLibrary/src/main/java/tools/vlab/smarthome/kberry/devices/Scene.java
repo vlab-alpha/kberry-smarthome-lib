@@ -14,7 +14,7 @@ public class Scene extends KNXDevice {
     private final AtomicLong lastExecution = new AtomicLong(0);
 
     private Scene(PositionPath positionPath) {
-        super(positionPath, SCENE_ACTIVATION);
+        super(positionPath, null, SCENE_ACTIVATION);
     }
 
     public Scene at(PositionPath positionPath) {

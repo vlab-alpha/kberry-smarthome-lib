@@ -22,15 +22,15 @@ public class Main {
 
             KNXDevices devices = new KNXDevices(connection);
 
-            devices.register(PresenceSensor.at(Haus.KinderzimmerGelbDecke));
-            devices.register(PresenceSensor.at(Haus.KinderzimmerBlau));
             devices.register(PresenceSensor.at(Haus.Office));
+//            devices.register(PresenceSensor.at(Haus.Office));
             devices.register(Light.at(Haus.Office));
-            devices.register(Light.at(Haus.KinderzimmerBlau));
-            devices.register(Light.at(Haus.KinderzimmerGelbDecke));
+            devices.register(PresenceSensor.at(Haus.KinderzimmerGelbDecke));
+//            devices.register(Light.at(Haus.KinderzimmerBlau));
+//            devices.register(Light.at(Haus.KinderzimmerGelbDecke));
             devices.register(VOCSensor.at(Haus.Kueche));
             devices.register(HumiditySensor.at(Haus.Kueche));
-            devices.register(ElectricitySensor.at(Haus.KinderzimmerGelbSteckdose));
+//            devices.register(ElectricitySensor.at(Haus.KinderzimmerGelbSteckdose));
 
             devices.exportCSV(Path.of("weinzierl_export.csv"));
 
@@ -40,21 +40,23 @@ public class Main {
             devices.getKNXDevices(PresenceSensor.class).forEach(device -> device.addListener(checker));
             devices.getKNXDevices(Light.class).forEach(device -> device.addListener(checker));
             devices.getKNXDevices(VOCSensor.class).forEach(device -> device.addListener(checker));
-            devices.getKNXDevices(ElectricitySensor.class).forEach(device -> device.addListener(checker));
+//            devices.getKNXDevices(ElectricitySensor.class).forEach(device -> device.addListener(checker));
             devices.getKNXDevices(HumiditySensor.class).forEach(device -> device.addListener(checker));
             System.out.println("Starte Listener Check");
             connection.connect();
             checker.start();
+        } catch (TimeoutException e) {
+            throw new RuntimeException(e);
         } finally {
-            if (connection != null) {
-                try {
-                    connection.disconnect();
-                } catch (Exception e) {
-                    System.err.println("Error while disconnecting");
-                    e.printStackTrace();
-                }
-
-            }
+//            if (connection != null) {
+//                try {
+//                    connection.disconnect();
+//                } catch (Exception e) {
+//                    System.err.println("Error while disconnecting");
+//                    e.printStackTrace();
+//                }
+//
+//            }
         }
 
     }

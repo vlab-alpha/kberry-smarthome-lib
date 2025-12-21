@@ -1,11 +1,11 @@
 package tools.vlab.smarthome.kberry.devices.sensor;
 
-import tools.vlab.smarthome.kberry.AtomicFloat;
 import tools.vlab.smarthome.kberry.PositionPath;
 import tools.vlab.smarthome.kberry.baos.BAOSReadException;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
 import tools.vlab.smarthome.kberry.devices.Command;
 import tools.vlab.smarthome.kberry.devices.KNXDevice;
+import tools.vlab.smarthome.kberry.devices.PersistentValue;
 
 import java.util.Objects;
 import java.util.Vector;
@@ -15,14 +15,19 @@ import static tools.vlab.smarthome.kberry.devices.Command.VOC_ACTUAL;
 public class VOCSensor extends KNXDevice {
 
     private final Vector<VOCStatus> listener = new Vector<>();
-    private final AtomicFloat currentVoc = new AtomicFloat();
+    private final PersistentValue<Float> currentVoc;
 
-    private VOCSensor(PositionPath positionPath) {
-        super(positionPath, VOC_ACTUAL);
+    private VOCSensor(PositionPath positionPath,Integer refreshData) {
+        super(positionPath, refreshData, VOC_ACTUAL);
+        this.currentVoc = new PersistentValue<>(positionPath, "VOC", 0.0f, Float.class);
     }
 
     public static VOCSensor at(PositionPath positionPath) {
-        return new VOCSensor(positionPath);
+        return new VOCSensor(positionPath, null);
+    }
+
+    public static VOCSensor at(PositionPath positionPath, int refreshIntervallMs) {
+        return new VOCSensor(positionPath, refreshIntervallMs);
     }
 
     public void addListener(VOCStatus listener) {

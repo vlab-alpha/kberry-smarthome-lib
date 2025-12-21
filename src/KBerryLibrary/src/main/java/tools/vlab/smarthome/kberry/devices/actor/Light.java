@@ -4,12 +4,12 @@ import tools.vlab.smarthome.kberry.PositionPath;
 
 public class Light extends OnOffDevice {
 
-    private Light(PositionPath positionPath) {
-        super(positionPath);
+    private Light(PositionPath positionPath,Integer refreshData) {
+        super(positionPath,refreshData,"Light");
     }
 
 
     public static Light at(PositionPath positionPath) {
-        return new Light(positionPath);
+        return new Light(positionPath, null);
     }
 }

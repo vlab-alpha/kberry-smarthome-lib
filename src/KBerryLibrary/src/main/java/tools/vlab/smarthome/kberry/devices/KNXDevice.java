@@ -5,7 +5,6 @@ import tools.vlab.smarthome.kberry.Log;
 import tools.vlab.smarthome.kberry.PositionPath;
 import tools.vlab.smarthome.kberry.baos.*;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
-import tools.vlab.smarthome.kberry.baos.messages.os.DataPointId;
 
 import java.util.Arrays;
 import java.util.List;
@@ -13,20 +12,22 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * FIXME: Es gibt Sensoren, die nicht von sich aus senden sondern es wird ein pull erwartet
- */
 public abstract class KNXDevice {
+
+    private Thread updateThread;
+    private volatile boolean running = false;
 
     @Getter
     private final PositionPath positionPath;
     private SerialBAOSConnection connection;
     private final Command[] cmd;
     private final ConcurrentHashMap<Command, BAOSObject> BAOMap = new ConcurrentHashMap<>();
+    private final Integer refreshIntervallMs;
 
-    protected KNXDevice(PositionPath positionPath, Command... cmd) {
+    protected KNXDevice(PositionPath positionPath, Integer refreshIntervallMs, Command... cmd) {
         this.positionPath = positionPath;
         this.cmd = cmd;
+        this.refreshIntervallMs = refreshIntervallMs;
     }
 
     protected List<Command> getCommands() {
@@ -60,7 +61,7 @@ public abstract class KNXDevice {
         this.validate(command);
         var bao = BAOMap.get(command);
         if (Objects.requireNonNull(bao.datapointType()) == KnxDatapointType.BOOLEAN) {
-            this.writeWithRetry(DataPoint.bool(bao.dataPointId(), value));
+            this.write(DataPoint.bool(bao.dataPointId(), value));
         } else {
             throw new InvalidCommandException(String.format("Unknown command %s", command));
         }
@@ -70,13 +71,13 @@ public abstract class KNXDevice {
         this.validate(command);
         var bao = BAOMap.get(command);
         switch (bao.datapointType()) {
-            case INT8 -> this.writeWithRetry(DataPoint.int8(bao.dataPointId(), value));
-            case SINT8 -> this.writeWithRetry(DataPoint.sInt8(bao.dataPointId(), value));
-            case SINT16 -> this.writeWithRetry(DataPoint.sint16(bao.dataPointId(), value));
-            case SINT32 -> this.writeWithRetry(DataPoint.sint32(bao.dataPointId(), value));
-            case UINT8 -> this.writeWithRetry(DataPoint.uInt8(bao.dataPointId(), value));
-            case UINT16 -> this.writeWithRetry(DataPoint.uInt16(bao.dataPointId(), value));
-            case UINT32 -> this.writeWithRetry(DataPoint.uint32(bao.dataPointId(), value));
+            case INT8 -> this.write(DataPoint.int8(bao.dataPointId(), value));
+            case SINT8 -> this.write(DataPoint.sInt8(bao.dataPointId(), value));
+            case SINT16 -> this.write(DataPoint.sint16(bao.dataPointId(), value));
+            case SINT32 -> this.write(DataPoint.sint32(bao.dataPointId(), value));
+            case UINT8 -> this.write(DataPoint.uInt8(bao.dataPointId(), value));
+            case UINT16 -> this.write(DataPoint.uInt16(bao.dataPointId(), value));
+            case UINT32 -> this.write(DataPoint.uint32(bao.dataPointId(), value));
             default -> throw new InvalidCommandException(String.format("Unknown command %s", command));
         }
     }
@@ -85,8 +86,8 @@ public abstract class KNXDevice {
         this.validate(command);
         var bao = BAOMap.get(command);
         switch (bao.datapointType()) {
-            case FLOAT9 -> this.writeWithRetry(DataPoint.float9(bao.dataPointId(), value));
-            case FLOAT32 -> this.writeWithRetry(DataPoint.float32(bao.dataPointId(), value));
+            case FLOAT9 -> this.write(DataPoint.float9(bao.dataPointId(), value));
+            case FLOAT32 -> this.write(DataPoint.float32(bao.dataPointId(), value));
             default -> throw new InvalidCommandException(String.format("Unknown command %s", command));
         }
     }
@@ -95,7 +96,7 @@ public abstract class KNXDevice {
         this.validate(command);
         var bao = BAOMap.get(command);
         if (Objects.requireNonNull(bao.datapointType()) == KnxDatapointType.RGB) {
-            this.writeWithRetry(DataPoint.rgb(bao.dataPointId(), value));
+            this.write(DataPoint.rgb(bao.dataPointId(), value));
         } else {
             throw new InvalidCommandException(String.format("Unknown command %s", command));
         }
@@ -104,37 +105,58 @@ public abstract class KNXDevice {
     public Optional<DataPoint> get(Command command) throws BAOSReadException {
         var bao = BAOMap.get(command);
         Log.debug("Get command %s with id %s", command.name(), bao.dataPointId().id());
-        return readWithRetry(bao.dataPointId());
+        try {
+            return Optional.of(this.connection.read(bao.dataPointId()));
+        } catch (Exception e) {
+            Log.error(e, "Failed to write data point!");
+            return Optional.empty();
+        }
     }
 
-    protected Optional<DataPoint> readWithRetry(DataPointId id) {
-        for (int retry = 2; retry > 0; retry--) {
-            try {
-                return Optional.of(this.connection.read(id));
-            } catch (BAOSReadException e) {
-                Log.debug(e, "Retry %s [%s]", retry, id);
-            }
+    public void start() throws BAOSReadException {
+        if (refreshIntervallMs != null) {
+            running = true;
+            refreshDataProcess();
+        } else {
+            load();
         }
-        Log.error("Failed to write data point!");
-        return Optional.empty();
+    }
+
+    public void stop() {
+        running = false;
+        try {
+            if (updateThread != null) {
+                updateThread.interrupt();
+            }
+        } catch (Exception e) {
+            /* ignore */
+        }
     }
 
     public abstract void load() throws BAOSReadException;
 
-
-    public void writeWithRetry(DataPoint dataPoint) throws BAOSWriteException {
-        for (int retry = 10; retry > 0; retry--) {
-            try {
-                this.connection.write(dataPoint);
-                Thread.sleep(10);
-                return;
-            } catch (BAOSWriteException e) {
-                Log.debug("Retry %s", retry);
-            } catch (InterruptedException e) {
-                return;
+    private void refreshDataProcess() {
+        updateThread = new Thread(() -> {
+            while (running) {
+                try {
+                    load();
+                    Thread.sleep(refreshIntervallMs);
+                } catch (InterruptedException | BAOSReadException e) {
+                    Log.error(e, "Failed to refresh data point!");
+                }
             }
+        }, "Update DataPoint of " + positionPath.getPath());
+        updateThread.setDaemon(true);
+        updateThread.start();
+    }
+
+
+    public void write(DataPoint dataPoint) {
+        try {
+            this.connection.write(dataPoint);
+        } catch (Exception e) {
+            Log.error(e, "Failed to write data point!");
         }
-        Log.error("Failed to write data point!");
     }
 
 }

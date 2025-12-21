@@ -4,12 +4,12 @@ import tools.vlab.smarthome.kberry.PositionPath;
 
 public class Plug extends OnOffDevice {
 
-    private Plug(PositionPath positionPath) {
-        super(positionPath);
+    private Plug(PositionPath positionPath, Integer refreshData) {
+        super(positionPath, refreshData,"Plug");
     }
 
     public static Plug at(PositionPath positionPath) {
-        return new Plug(positionPath);
+        return new Plug(positionPath, null);
     }
 
 }

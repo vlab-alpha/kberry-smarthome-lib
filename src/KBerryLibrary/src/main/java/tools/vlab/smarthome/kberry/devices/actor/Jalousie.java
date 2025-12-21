@@ -5,27 +5,29 @@ import tools.vlab.smarthome.kberry.baos.BAOSReadException;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
 import tools.vlab.smarthome.kberry.devices.Command;
 import tools.vlab.smarthome.kberry.devices.KNXDevice;
+import tools.vlab.smarthome.kberry.devices.PersistentValue;
 
 import java.util.Vector;
-import java.util.concurrent.atomic.AtomicInteger;
 
 // FIXME: manchmal reagieren die Jalousien nicht, es soll noch ein timer prüfen, ob es sich geändert hat (wenn keien Exception geschmissen worden ist) und dann soll nochmal getriggert werden!!!
 public class Jalousie extends KNXDevice {
 
     private final Vector<JalousieStatus> listener = new Vector<>();
-    private final AtomicInteger currentPosition = new AtomicInteger(0);
+    private final PersistentValue<Integer> currentPosition;
 
-    private Jalousie(PositionPath positionPath) {
+    private Jalousie(PositionPath positionPath,Integer refreshData) {
         super(positionPath,
+                refreshData,
                 Command.SHUTTER_UP_DOWN_CONTROL,
                 Command.STOP,
                 Command.SHUTTER_REFERENCE,
                 Command.SHUTTER_POSITION_SET,
                 Command.SHUTTER_POSITION_ACTUAL_STATUS);
+        this.currentPosition = new PersistentValue<>(positionPath, "jalousieCurrentPosition", 0, Integer.class);
     }
 
     public static Jalousie at(PositionPath positionPath) {
-        return new Jalousie(positionPath);
+        return new Jalousie(positionPath, null);
     }
 
     public void addListener(JalousieStatus position) {

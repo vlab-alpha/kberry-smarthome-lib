@@ -1,14 +1,14 @@
 package tools.vlab.smarthome.kberry.baos;
 
-import com.fazecast.jSerialComm.SerialPort;
 import tools.vlab.smarthome.kberry.Log;
+import tools.vlab.smarthome.kberry.SerialPort;
 import tools.vlab.smarthome.kberry.baos.messages.FT12Frame;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataFramePayload;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class BAOSWriter {
+public class BAOSWriter implements AckWriter {
 
     private final SerialPort serialPort;
     private volatile boolean running = false;
@@ -34,9 +34,8 @@ public class BAOSWriter {
         boolean odd = isOddAndNext();
         var data = FT12Frame.Data.request(request, odd);
         frames.addLast(data.toByteArray());
-
         Log.debug(
-                "REQ: %s seq=%d %s",
+                "Add To Stack: %s seq=%d %s",
                 odd ? "ODD" : "EVENT",
                 sequence.get(),
                 data.toHex()
@@ -46,7 +45,6 @@ public class BAOSWriter {
     public void sendAck() {
         var ack = FT12Frame.Ack.ack();
         frames.addLast(ack.toByteArray());
-        Log.debug("Ack: %s", ack.toHex());
     }
 
     public void sendReset() {
@@ -78,11 +76,16 @@ public class BAOSWriter {
             while (running) {
                 byte[] frame = frames.pollFirst();
                 if (frame != null) {
-                    serialPort.writeBytes(frame, frame.length);
+                    serialPort.writeBytes(frame);
                 }
                 Thread.sleep(10);
             }
         } catch (InterruptedException ignored) {
         }
+    }
+
+    @Override
+    public void ack() {
+        sendAck();
     }
 }

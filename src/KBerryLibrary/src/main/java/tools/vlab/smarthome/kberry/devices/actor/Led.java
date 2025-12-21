@@ -5,29 +5,31 @@ import tools.vlab.smarthome.kberry.baos.BAOSReadException;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
 import tools.vlab.smarthome.kberry.devices.Command;
 import tools.vlab.smarthome.kberry.devices.KNXDevice;
+import tools.vlab.smarthome.kberry.devices.PersistentValue;
 import tools.vlab.smarthome.kberry.devices.RGB;
 
 import java.util.Vector;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class Led extends KNXDevice {
 
     private final Vector<LedStatus> listener = new Vector<>();
-    private final AtomicBoolean status = new AtomicBoolean(false);
-    private final AtomicReference<RGB> color = new AtomicReference<>(new RGB(0, 0, 0));
+    private final PersistentValue<Boolean> status;
+    private final PersistentValue<RGB> color;
 
-    private Led(PositionPath positionPath) {
+    private Led(PositionPath positionPath, Integer refreshData) {
         super(positionPath,
+                refreshData,
                 Command.RGB_COLOR_CONTROL,
                 Command.RGB_COLOR_STATUS,
                 Command.ON_OFF_SWITCH,
                 Command.ON_OFF_STATUS
         );
+        this.status = new PersistentValue<>(positionPath, "ledStatus", false, Boolean.class);
+        this.color = new PersistentValue<>(positionPath, "jalousieCurrentPosition", new RGB(0, 0, 0), RGB.class);
     }
 
     public Led at(PositionPath positionPath) {
-        return new Led(positionPath);
+        return new Led(positionPath, null);
     }
 
     public void addListener(LedStatus ledStatus) {

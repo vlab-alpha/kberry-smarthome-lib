@@ -13,12 +13,12 @@ public class PushButton extends KNXDevice {
     private final AtomicBoolean statusChanged = new AtomicBoolean(false);
     private final AtomicBoolean enable = new AtomicBoolean(false);
 
-    private PushButton(PositionPath positionPath) {
-        super(positionPath, Command.ON_OFF_STATUS, Command.ENABLE, Command.ENABLE_STATUS);
+    private PushButton(PositionPath positionPath,Integer refreshData) {
+        super(positionPath, refreshData, Command.ON_OFF_STATUS, Command.ENABLE, Command.ENABLE_STATUS);
     }
 
     public static PushButton at(PositionPath positionPath) {
-        return new PushButton(positionPath);
+        return new PushButton(positionPath, null);
     }
 
     public void addListener(PushButtonStatus listener) {

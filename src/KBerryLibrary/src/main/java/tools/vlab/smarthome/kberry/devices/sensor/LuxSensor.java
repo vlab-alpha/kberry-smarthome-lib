@@ -1,26 +1,31 @@
 package tools.vlab.smarthome.kberry.devices.sensor;
 
-import tools.vlab.smarthome.kberry.AtomicFloat;
 import tools.vlab.smarthome.kberry.PositionPath;
 import tools.vlab.smarthome.kberry.baos.BAOSReadException;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
 import tools.vlab.smarthome.kberry.devices.Command;
 import tools.vlab.smarthome.kberry.devices.KNXDevice;
 import tools.vlab.smarthome.kberry.devices.LuxCategory;
+import tools.vlab.smarthome.kberry.devices.PersistentValue;
 
 import java.util.Vector;
 
 public class LuxSensor extends KNXDevice {
 
     private final Vector<LuxStatus> listener = new Vector<>();
-    private final AtomicFloat currentLux = new AtomicFloat(0.0f);
+    private final PersistentValue<Float> currentLux;
 
-    private LuxSensor(PositionPath positionPath) {
-        super(positionPath, Command.LUX_VALUE_ACTUAL);
+    private LuxSensor(PositionPath positionPath, Integer refreshData) {
+        super(positionPath, refreshData, Command.LUX_VALUE_ACTUAL);
+        this.currentLux = new PersistentValue<>(positionPath, "Lux", 0.0f, Float.class);
     }
 
     public static LuxSensor at(PositionPath positionPath) {
-        return new LuxSensor(positionPath);
+        return new LuxSensor(positionPath, null);
+    }
+
+    public static LuxSensor at(PositionPath positionPath, int refreshIntervallMs) {
+        return new LuxSensor(positionPath, refreshIntervallMs);
     }
 
     public void addListener(LuxStatus listener) {

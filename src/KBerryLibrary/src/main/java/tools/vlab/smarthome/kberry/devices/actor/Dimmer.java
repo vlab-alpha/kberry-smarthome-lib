@@ -5,29 +5,31 @@ import tools.vlab.smarthome.kberry.baos.BAOSReadException;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
 import tools.vlab.smarthome.kberry.devices.Command;
 import tools.vlab.smarthome.kberry.devices.KNXDevice;
+import tools.vlab.smarthome.kberry.devices.PersistentValue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class Dimmer extends KNXDevice {
 
     private final List<DimmerStatus> listener = new ArrayList<>();
-    private final AtomicInteger currentBrightness = new AtomicInteger(0);
-    private final AtomicBoolean currentStatus = new AtomicBoolean(false);
+    private final PersistentValue<Integer> currentBrightness;
+    private final PersistentValue<Boolean> currentStatus;
 
-    private Dimmer(PositionPath positionPath) {
+    private Dimmer(PositionPath positionPath,Integer refreshData) {
         super(positionPath,
+                refreshData,
                 Command.ON_OFF_SWITCH,
                 Command.SET_BRIGHTNESS, // Angenommen, Sie haben diesen Befehl hinzugefügt (oder nutzen DIMMEN direkt)
                 Command.ON_OFF_STATUS, // Für Rückmeldungen,
                 Command.BRIGHTNESS_STATUS
         );
+        this.currentBrightness = new PersistentValue<>(positionPath, "currentBrightness", 0, Integer.class);
+        this.currentStatus = new PersistentValue<>(positionPath, "currentStatus", false, Boolean.class);
     }
 
     public static Dimmer at(PositionPath positionPath) {
-        return new Dimmer(positionPath);
+        return new Dimmer(positionPath, null);
     }
 
     public void addListener(DimmerStatus status) {

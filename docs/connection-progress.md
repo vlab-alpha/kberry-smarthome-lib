@@ -56,3 +56,16 @@
 - Alles synchronisiert mit `writeLock`
 - Alle DataPoints → `DataPoint` Objekt mit Payload + State
 - Retry & Reset bei InProgress oder Fehler
+
+
+
+FAQ:
+Der Grund, warum dein Python-Code ein ACK (E5) erhält, dein Java-Code jedoch nicht, liegt an der Parität (Parity).
+In deinem Python-Skript ist parity=serial.PARITY_EVEN gesetzt. Das KNX FT1.2 Protokoll (das du mit der Sequenz 68 0C 0C 68... ansprichst) erfordert zwingend Even Parity. 
+In deinem Java-Code nutzt du aktuell diesen stty-Befehl:
+stty -F ... cs8 -cstopb -parenb ... 
+Das -parenb deaktiviert die Parität komplett (Parity None). Da der KNX-Adapter ein Signal mit Paritätsbit erwartet, ignoriert er deine Java-Nachricht einfach, weil sie für ihn wie „Rauschen“ oder ein fehlerhafter Datenstrom aussieht. 
+
+
+Ein Paritätsbit ist ein zusätzliches Bit, das an eine Folge von Datenbits (meist ein Byte) angehängt wird, um eine einfache Fehlererkennung bei der Datenübertragung zu ermöglichen. 
+Es dient dazu, die Gesamtzahl der „1“-Bits in einem übertragenen Datenwort entweder auf eine gerade oder eine ungerade Zahl zu ergänzen. 

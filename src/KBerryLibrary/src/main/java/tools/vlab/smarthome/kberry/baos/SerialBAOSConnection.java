@@ -1,10 +1,10 @@
 package tools.vlab.smarthome.kberry.baos;
 
-import com.fazecast.jSerialComm.SerialPort;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import tools.vlab.smarthome.kberry.Log;
 import tools.vlab.smarthome.kberry.ReloadDevice;
+import tools.vlab.smarthome.kberry.SerialPort;
 import tools.vlab.smarthome.kberry.baos.messages.FT12Frame;
 import tools.vlab.smarthome.kberry.baos.messages.os.*;
 
@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+
 
 public class SerialBAOSConnection {
 
@@ -30,24 +31,20 @@ public class SerialBAOSConnection {
     private ReloadDevice reloadDevice;
 
     public SerialBAOSConnection(String device, int timeout, int retries) {
-        port = SerialPort.getCommPort(device);
+        port = new SerialPort(device, 19200);
+
         this.timeout = timeout;
         this.retries = retries;
         this.writer = new BAOSWriter(port);
-        this.reader = new BAOSReader(port);
+        this.reader = new BAOSReader(port, writer);
     }
 
-    public void connect() {
-        port.setComPortParameters(19200, 8, SerialPort.ONE_STOP_BIT, SerialPort.EVEN_PARITY);
-        if (this.timeout < 50) {
-            throw new RuntimeException("Timeout should be more than 50!");
-        }
-        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING, 50, 0); // Timeout 5s
+    public void connect() throws TimeoutException {
         if (port.openPort()) {
             writer.start();
             reader.start();
             writer.sendReset();
-//            reader.waitForAck(2000); // Anscheinend wird das nicht gesendet!
+            reader.waitForAck(1000);
             startObserver();
             try {
                 Thread.sleep(3000);
@@ -60,6 +57,7 @@ public class SerialBAOSConnection {
         } else {
             throw new RuntimeException("Failed to start serial port");
         }
+
     }
 
     public void disconnect() {
@@ -87,7 +85,7 @@ public class SerialBAOSConnection {
             while (running) {
                 var indicator = reader.nextIndicator();
                 if (indicator.isPresent()) {
-                    writer.sendAck();
+//                    Log.debug("IND: %d  %s", indicator.get().getId(), indicator.get().toHex());
                     switch (indicator.get().getIndicator()) {
                         case SERVER_ITEM_IND -> GetServerItem.Indicator
                                 .frameData(indicator.get())
@@ -99,11 +97,13 @@ public class SerialBAOSConnection {
                                 .frameData(indicator.get())
                                 .getDataPoints()
                                 .forEach(dp -> {
-//                                    Log.debug("Listener: %d  %s", dp.id().id(), valueChangeListener.containsKey(dp.id().id()));
                                     Optional
                                             .ofNullable(valueChangeListener.get(dp.id().id()))
                                             .ifPresent(listener -> listener.accept(dp));
                                 });
+                        case UNKNOWN -> {
+                            Log.error("Unknown indicator: " + indicator.get().toHex());
+                        }
                     }
                 }
                 Thread.sleep(10);
@@ -126,14 +126,13 @@ public class SerialBAOSConnection {
         synchronized (writeLock) {
             try {
                 var request = SetDatapointValue.Request.setCacheAndBus(dataPoint);
-                var future = reader.responseOf(request, timeout);
+                var future = reader.responseOf(request, 5000);
                 writer.sendDataFrame(request);
                 var frameData = future.waitForResult();
-//                reader.waitForAck(timeout); // TODO: Test
-//                var frameData = reader.waitForNextResponse(dataPoint.id(), timeout);
+                Log.debug("Frame data: " + frameData.toHex());
                 var response = SetDatapointValue.Response.frameData(frameData);
                 if (response.isFailed()) {
-                    throw new BAOSWriteException("BAOS cannot be set [ERROR: " + response.error().getDescription() + "]");
+                    throw new BAOSWriteException("BAOS cannot be written [ERROR: " + response.error().getDescription() + "]");
                 }
             } catch (TimeoutException e) {
                 throw new BAOSWriteException("Timeout [ERROR: " + e.getMessage() + "]");

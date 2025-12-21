@@ -1,6 +1,7 @@
 package tools.vlab.smarthome.kberry;
 
 import tools.vlab.smarthome.kberry.devices.KNXDevices;
+import tools.vlab.smarthome.kberry.devices.actor.Light;
 import tools.vlab.smarthome.kberry.devices.actor.OnOffDevice;
 import tools.vlab.smarthome.kberry.devices.actor.OnOffStatus;
 import tools.vlab.smarthome.kberry.devices.sensor.*;
@@ -10,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Checker implements PresenceStatus, OnOffStatus, VOCStatus, ElectricStatus,HumidityStatus {
 
     private final KNXDevices knxDevices;
+    final AtomicBoolean switchOff = new AtomicBoolean(false);
 
     public Checker(KNXDevices knxDevices) {
         this.knxDevices = knxDevices;
@@ -27,29 +29,48 @@ public class Checker implements PresenceStatus, OnOffStatus, VOCStatus, Electric
     private void run() {
         ((Runnable) () -> {
             try {
-                final AtomicBoolean switchOff = new AtomicBoolean(false);
+
                 while (true) {
                     Thread.sleep(2000);
-//                    System.out.println("Schalte Büro Licht " + (switchOff.get() ? "an" : "aus"));
-//                    var light = this.knxDevices.getKNXDevice(Light.class, Haus.Office);
-//                    light.ifPresent(l -> {
-//                        System.out.println("Licht gefunden!");
-//                        if (switchOff.get()) {
-//                            l.off();
-//                        } else {
-//                            l.on();
-//                        }
-//                        switchOff.set(!switchOff.get());
-//                    });
+                    // schalteLichtAnAus(); // Funktioniert
+                    this.getLuftfeuchtigkeit();
+                    this.getVoc();
+
                     Thread.sleep(5000);
-                    this.knxDevices.getKNXDevices(VOCSensor.class).forEach(device -> {
-                        System.out.println("VOC (REQ) " + device.getCurrentPPM() + "ppm");
-                    });
                 }
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }).run();
+    }
+
+    private void schalteLichtAnAus() {
+        System.out.println("Schalte Büro Licht " + (switchOff.get() ? "an" : "aus"));
+        var light = this.knxDevices.getKNXDevice(Light.class, Haus.Office);
+
+        light.ifPresent(l -> {
+            System.out.println("Licht gefunden!");
+            if (!switchOff.get()) {
+                l.off();
+            } else {
+                l.on();
+            }
+            switchOff.set(!switchOff.get());
+        });
+    }
+
+    private void getLuftfeuchtigkeit() {
+        var humidity = this.knxDevices.getKNXDevice(HumiditySensor.class, Haus.Kueche);
+        humidity.ifPresent(h -> {
+            System.out.println("Luftfeuchtigkeit " + h.getCurrentHumidity() + "%");
+        });
+    }
+
+    private void getVoc() {
+        var co2 = this.knxDevices.getKNXDevice(VOCSensor.class, Haus.Kueche);
+        co2.ifPresent(co -> {
+            System.out.println("Co2: " + co.getCurrentPPM() + "ppm");
+        });
     }
 
     @Override

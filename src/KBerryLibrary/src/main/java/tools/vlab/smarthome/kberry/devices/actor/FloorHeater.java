@@ -1,38 +1,41 @@
 package tools.vlab.smarthome.kberry.devices.actor;
 
-import tools.vlab.smarthome.kberry.AtomicFloat;
 import tools.vlab.smarthome.kberry.PositionPath;
 import tools.vlab.smarthome.kberry.baos.BAOSReadException;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
 import tools.vlab.smarthome.kberry.devices.Command;
 import tools.vlab.smarthome.kberry.devices.HeaterMode;
 import tools.vlab.smarthome.kberry.devices.KNXDevice;
+import tools.vlab.smarthome.kberry.devices.PersistentValue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static tools.vlab.smarthome.kberry.devices.Command.*;
 
 public class FloorHeater extends KNXDevice {
 
-    private final AtomicInteger currentPosition = new AtomicInteger(0);
-    private final AtomicInteger currentMode = new AtomicInteger(0);
-    private final AtomicFloat currentSetpoint = new AtomicFloat(0.0f);
+    private final PersistentValue<Integer> currentPosition;
+    private final PersistentValue<Integer> currentMode;
+    private final PersistentValue<Float> currentSetpoint;
     private final List<FloorHeaterStatus> listener = new ArrayList<>();
 
-    private FloorHeater(PositionPath positionPath) {
+    private FloorHeater(PositionPath positionPath,Integer refreshData) {
         super(positionPath,
+                refreshData,
                 HVAC_SETPOINT_TEMPERATURE_SET,
                 HVAC_SETPOINT_TEMPERATURE_ACTUAL,
                 HVAC_OPERATING_MODE_SET,
                 HVAC_OPERATING_MODE_ACTUAL,
                 HVAC_ACTUATOR_POSITION_ACTUAL
         );
+        this.currentPosition = new PersistentValue<>(positionPath, "floorHeaterPosition", 0, Integer.class);
+        this.currentMode = new PersistentValue<>(positionPath, "currentMode", 0, Integer.class);
+        this.currentSetpoint = new PersistentValue<>(positionPath, "currentSetpoint", 0.0f, Float.class);
     }
 
     public FloorHeater at(PositionPath positionPath) {
-        return new FloorHeater(positionPath);
+        return new FloorHeater(positionPath, null);
     }
 
     public void addListener(FloorHeaterStatus status) {

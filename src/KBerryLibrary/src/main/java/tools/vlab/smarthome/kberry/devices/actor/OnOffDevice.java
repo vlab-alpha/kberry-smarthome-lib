@@ -5,17 +5,18 @@ import tools.vlab.smarthome.kberry.baos.BAOSReadException;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataPoint;
 import tools.vlab.smarthome.kberry.devices.Command;
 import tools.vlab.smarthome.kberry.devices.KNXDevice;
+import tools.vlab.smarthome.kberry.devices.PersistentValue;
 
 import java.util.Vector;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class OnOffDevice extends KNXDevice {
 
     private final Vector<OnOffStatus> listener = new Vector<>();
-    private final AtomicBoolean currentValue = new AtomicBoolean(false);
+    private final PersistentValue<Boolean> currentValue;
 
-    protected OnOffDevice(PositionPath positionPath) {
-        super(positionPath, Command.ON_OFF_SWITCH, Command.ON_OFF_STATUS);
+    protected OnOffDevice(PositionPath positionPath, Integer refreshData, String type) {
+        super(positionPath, refreshData, Command.ON_OFF_SWITCH, Command.ON_OFF_STATUS);
+        this.currentValue = new PersistentValue<>(positionPath, type + "status", false, Boolean.class);
     }
 
     public void on() {

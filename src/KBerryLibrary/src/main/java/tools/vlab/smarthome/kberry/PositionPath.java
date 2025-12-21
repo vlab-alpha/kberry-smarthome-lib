@@ -16,4 +16,8 @@ public interface PositionPath {
     default String getPath() {
         return String.join("/", getLocation(), getFloor(), getRoom(), getPosition());
     }
+
+    default String toId(String type) {
+        return String.join(".", getLocation(), getFloor(), getRoom(), getPosition(), type);
+    }
 }

@@ -1,7 +1,7 @@
 package tools.vlab.smarthome.kberry.baos;
 
-import com.fazecast.jSerialComm.SerialPort;
-import com.fazecast.jSerialComm.SerialPortTimeoutException;
+import tools.vlab.smarthome.kberry.SerialPort;
+import tools.vlab.smarthome.kberry.SerialPortListener;
 import tools.vlab.smarthome.kberry.baos.messages.FT12Frame;
 import tools.vlab.smarthome.kberry.Log;
 import tools.vlab.smarthome.kberry.baos.messages.os.DataFramePayload;
@@ -11,27 +11,26 @@ import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class BAOSReader {
+public class BAOSReader implements SerialPortListener {
 
     private final SerialPort port;
     private volatile boolean running = false;
-    private InputStream in;
+//    private InputStream in;
     private final FT12StreamParser parser = new FT12StreamParser();
 
     private final AtomicLong ackTS = new AtomicLong(0);
     private final ConcurrentHashMap<String, CompletableFuture<FT12Frame.Data>> responseFrames = new ConcurrentHashMap<>();
     private final ConcurrentLinkedDeque<FT12Frame.Data> indicatorFrames = new ConcurrentLinkedDeque<>();
+    private final AckWriter ackWriter;
 
-    public BAOSReader(SerialPort port) {
+    public BAOSReader(SerialPort port, AckWriter ackWriter) {
         this.port = port;
+        this.ackWriter = ackWriter;
     }
 
     public void start() {
         running = true;
-        in = port.getInputStream();
-        Thread t = new Thread(this::readLoop, "BAOS-Reader");
-        t.setDaemon(true);
-        t.start();
+        port.addListener(this);
     }
 
     public void stop() {
@@ -67,7 +66,7 @@ public class BAOSReader {
                 return buffer;
             } catch (Exception e) {
                 pending.remove(String.format("%s@%d", payload.getService(), payload.getId()));
-                throw new TimeoutException("Timeout waiting for " + payload.getId());
+                throw new TimeoutException("Timeout " + timeoutMS() + "ms [" + payload.getId() + "]");
             }
         }
 
@@ -102,54 +101,35 @@ public class BAOSReader {
         ackTS.set(0);
     }
 
-    private void readLoop() {
-        try {
-            while (running) {
-                try {
-                    byte[] tmp = new byte[256];
-                    int n = in.read(tmp);
-                    //Log.debug("Read loop byte " + ByteUtil.toHex(tmp) + " bytes");
-                    parser.feed(tmp, n);
+    @Override
+    public void dataReceived(byte[] serialData) {
+        parser.feed(serialData);
+        byte[] frame;
+        while ((frame = parser.pollFrame()) != null) {
 
-                    byte[] frame;
-                    while ((frame = parser.pollFrame()) != null) {
-
-                        if (FT12Frame.Ack.is(frame)) {
-                            ackTS.set(System.currentTimeMillis());
-                            continue;
-                        }
-
-                        if (FT12Frame.Data.is(frame)) {
-                            FT12Frame.Data data = FT12Frame.Data.of(frame);
-//                        Log.debug("Received data: %s %s", data.toHex(), data.getSubService().isIndication());
-                            if (data.isIndicator()) {
-                                Log.debug("IND: ?: %s", data.toHex());
-                                indicatorFrames.add(data);
-                            } else if (data.isResponse()) {
-//                                Log.debug("RES: %s@%s: %s", data.getService().getResponseCode(), data.getId(), data.toHex());
-                                getFuture(data).complete(data);
-                            } else {
-                                Log.error("No Datapoint or server Item: %s", data.toHex());
-                            }
-                            continue;
-                        }
-
-                        Log.error("Unknown frame: %s", ByteUtil.toHex(frame));
-                    }
-                } catch (SerialPortTimeoutException e) {
-                    Thread.sleep(10);
-                } catch (Exception e) {
-                    Log.error(e, "Error reading BAOS Frames");
-                }
+            if (FT12Frame.Ack.is(frame)) {
+                ackTS.set(System.currentTimeMillis());
+                continue;
             }
-        } catch (InterruptedException e) {
-            Log.error(e, "Error reading BAOS Frames");
+            if (FT12Frame.Data.is(frame)) {
+                ackWriter.ack();
+                FT12Frame.Data data = FT12Frame.Data.of(frame);
+                if (data.isIndicator()) {
+                    Log.debug("IND: ?: %s", data.toHex());
+                    indicatorFrames.add(data);
+                } else if (data.isResponse()) {
+                    getFuture(data).complete(data);
+                } else {
+                    Log.error("No Datapoint or server Item: %s", data.toHex());
+                }
+                continue;
+            }
+            Log.error("Unknown frame: %s", ByteUtil.toHex(frame));
         }
     }
 
     private CompletableFuture<FT12Frame.Data> getFuture(DataFramePayload payload) {
         var id = id(payload);
-        Log.debug("getFuture: %s", id);
         return this.responseFrames.get(id);
     }
 
@@ -159,7 +139,6 @@ public class BAOSReader {
 
     private void putFuture(DataFramePayload payload, CompletableFuture<FT12Frame.Data> future) {
         var id = id(payload);
-        Log.debug("putFuture: %s", id);
         this.responseFrames.put(id, future);
     }
 

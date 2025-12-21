@@ -29,8 +29,30 @@ public class FT12StreamParser {
         parse();
     }
 
+    public synchronized void feed(byte[] data) {
+        int length = data.length;
+
+        if (writePos + length > buffer.length) {
+            // Buffer-Overflow → Resync
+            writePos = 0;
+        }
+
+        System.arraycopy(data, 0, buffer, writePos, length);
+        writePos += length;
+
+        parse();
+    }
+
     public synchronized byte[] pollFrame() {
         return frames.poll();
+    }
+
+    public byte[] getFrame() {
+        try {
+            return frames.element();
+        } catch (Exception e) {
+        }
+        return new byte[0];
     }
 
     private void parse() {
