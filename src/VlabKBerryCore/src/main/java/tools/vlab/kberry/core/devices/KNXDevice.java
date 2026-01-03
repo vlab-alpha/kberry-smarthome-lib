@@ -7,13 +7,12 @@ import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.baos.*;
 import tools.vlab.kberry.core.baos.messages.os.DataPoint;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class KNXDevice {
+
+    public Vector<StatusListener> listeners = new Vector<>();
 
     private static final Logger Log = LoggerFactory.getLogger(KNXDevice.class);
 
@@ -26,6 +25,8 @@ public abstract class KNXDevice {
     private final Command[] cmd;
     private final ConcurrentHashMap<Command, BAOSObject> BAOMap = new ConcurrentHashMap<>();
     private final Integer refreshIntervallMs;
+    @Getter
+    private final String id = UUID.randomUUID().toString();
 
     protected KNXDevice(PositionPath positionPath, Integer refreshIntervallMs, Command... cmd) {
         this.positionPath = positionPath;
@@ -160,6 +161,14 @@ public abstract class KNXDevice {
         } catch (Exception e) {
             Log.error("Failed to write data point!", e);
         }
+    }
+
+    public <T extends StatusListener> void addListener(T listener) {
+        listeners.add(listener);
+    }
+
+    public <T extends StatusListener> void RemoveListener(T listener) {
+        listeners.remove(listener);
     }
 
 }

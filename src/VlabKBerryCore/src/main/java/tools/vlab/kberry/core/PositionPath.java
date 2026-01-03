@@ -20,4 +20,14 @@ public interface PositionPath {
     default String toId(String type) {
         return String.join(".", getLocation(), getFloor(), getRoom(), getPosition(), type);
     }
+
+    default boolean sameRoom(PositionPath path) {
+        return this.getLocation().equalsIgnoreCase(path.getLocation()) &&  this.getFloor().equalsIgnoreCase(path.getFloor()) && this.getRoom().equalsIgnoreCase(path.getRoom());
+    }
+
+    default boolean sameFloor(PositionPath path) {
+        return this.getLocation().equalsIgnoreCase(path.getLocation()) && this.getFloor().equalsIgnoreCase(path.getFloor());
+    }
+
+
 }

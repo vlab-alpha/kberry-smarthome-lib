@@ -7,18 +7,18 @@ import tools.vlab.kberry.core.devices.Command;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
 
-import java.util.Vector;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static tools.vlab.kberry.core.devices.Command.ELECTRICITY_KWH_ACTUAL;
 import static tools.vlab.kberry.core.devices.Command.ELECTRICITY_KWH_METER;
 
 public class ElectricitySensor extends KNXDevice {
 
-    private final Vector<ElectricStatus> listener = new Vector<>();
     private final PersistentValue<Integer> kwh;
     private final PersistentValue<Integer> kwhMeter;
 
-    private ElectricitySensor(PositionPath positionPath,Integer refreshData) {
+    private ElectricitySensor(PositionPath positionPath, Integer refreshData) {
         super(positionPath, refreshData, ELECTRICITY_KWH_ACTUAL, ELECTRICITY_KWH_METER);
         this.kwh = new PersistentValue<>(positionPath, "kwh", 0, Integer.class);
         this.kwhMeter = new PersistentValue<>(positionPath, "kwhMeter", 0, Integer.class);
@@ -30,10 +30,6 @@ public class ElectricitySensor extends KNXDevice {
 
     public static ElectricitySensor at(PositionPath positionPath, int refreshIntervallMs) {
         return new ElectricitySensor(positionPath, refreshIntervallMs);
-    }
-
-    public void addListener(ElectricStatus listener) {
-        this.listener.add(listener);
     }
 
     public int getCurrentKWH() {
@@ -49,13 +45,17 @@ public class ElectricitySensor extends KNXDevice {
         switch (command) {
             case ELECTRICITY_KWH_ACTUAL -> dataPoint.getUInt8().ifPresent(value -> {
                 kwh.set(value);
-                listener.forEach(presenceStatus -> presenceStatus.kwhChanged(this, value));
+                getListener().forEach(presenceStatus -> presenceStatus.kwhChanged(this, value));
             });
             case ELECTRICITY_KWH_METER -> dataPoint.getUInt8().ifPresent(value -> {
                 kwhMeter.set(value);
-                listener.forEach(presenceStatus -> presenceStatus.electricityChanged(this, value));
+                getListener().forEach(presenceStatus -> presenceStatus.electricityChanged(this, value));
             });
         }
+    }
+
+    private List<ElectricStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof ElectricStatus).map(l -> (ElectricStatus) l).collect(Collectors.toList());
     }
 
     @Override

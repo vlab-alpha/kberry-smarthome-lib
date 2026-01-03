@@ -1,6 +1,8 @@
 package tools.vlab.kberry.core.devices.sensor;
 
-public interface ElectricStatus {
+import tools.vlab.kberry.core.devices.StatusListener;
+
+public interface ElectricStatus extends StatusListener {
 
     void kwhChanged(ElectricitySensor sensor, float kwh);
 

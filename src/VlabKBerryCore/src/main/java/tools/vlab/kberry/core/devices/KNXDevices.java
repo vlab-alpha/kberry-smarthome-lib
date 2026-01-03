@@ -12,10 +12,7 @@ import tools.vlab.kberry.core.baos.messages.os.DataPointId;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Vector;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -156,6 +153,13 @@ public class KNXDevices implements ReloadDevice {
                 .collect(Collectors.toList());
     }
 
+    public <T extends KNXDevice> Optional<T> getKNXDeviceByFloor(Class<T> clazz, PositionPath floor) {
+        return this.devices.stream()
+                .filter(d -> d.getPositionPath().sameFloor(floor))
+                .map(clazz::cast)
+                .findFirst();
+    }
+
     /**
      * Returns all KNX devices of a given type in a specific room.
      *
@@ -168,6 +172,13 @@ public class KNXDevices implements ReloadDevice {
                 .filter(d -> d.getPositionPath().getRoom().equalsIgnoreCase(room))
                 .map(clazz::cast)
                 .collect(Collectors.toList());
+    }
+
+    public <T extends KNXDevice> Optional<T> getKNXDeviceByRoom(Class<T> clazz, PositionPath path) {
+        return this.devices.stream()
+                .filter(d -> d.getPositionPath().sameRoom(path))
+                .map(clazz::cast)
+                .findFirst();
     }
 
     /**
@@ -205,6 +216,23 @@ public class KNXDevices implements ReloadDevice {
      */
     public List<KNXDevice> getAllDevices() {
         return this.devices;
+    }
+
+    public List<PositionPath> getAllPositionPaths() {
+        return this.devices.stream()
+                .map(KNXDevice::getPositionPath)
+                .collect(Collectors.toList());
+    }
+
+    public List<PositionPath> getAllRooms() {
+        Map<String, List<PositionPath>> grouped = this.devices.stream()
+                .map(KNXDevice::getPositionPath)
+                .collect(Collectors.groupingBy(pp -> pp.getLocation() + "." + pp.getFloor()));
+        return grouped.values().stream()
+                .flatMap(list -> list.stream()
+                        .distinct()
+                )
+                .collect(Collectors.toList());
     }
 
     /**

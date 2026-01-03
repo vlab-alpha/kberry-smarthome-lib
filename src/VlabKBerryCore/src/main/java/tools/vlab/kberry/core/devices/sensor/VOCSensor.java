@@ -7,14 +7,14 @@ import tools.vlab.kberry.core.devices.Command;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
 
+import java.util.List;
 import java.util.Objects;
-import java.util.Vector;
+import java.util.stream.Collectors;
 
 import static tools.vlab.kberry.core.devices.Command.VOC_ACTUAL;
 
 public class VOCSensor extends KNXDevice {
 
-    private final Vector<VOCStatus> listener = new Vector<>();
     private final PersistentValue<Float> currentVoc;
 
     private VOCSensor(PositionPath positionPath,Integer refreshData) {
@@ -30,10 +30,6 @@ public class VOCSensor extends KNXDevice {
         return new VOCSensor(positionPath, refreshIntervallMs);
     }
 
-    public void addListener(VOCStatus listener) {
-        this.listener.add(listener);
-    }
-
     public float getCurrentPPM() {
         return currentVoc.get();
     }
@@ -43,9 +39,13 @@ public class VOCSensor extends KNXDevice {
         if (Objects.requireNonNull(command) == VOC_ACTUAL) {
             dataPoint.getFloat9().ifPresent(value -> {
                 currentVoc.set(value);
-                listener.forEach(vocStatus -> vocStatus.vocChanged(this, value));
+                getListener().forEach(vocStatus -> vocStatus.vocChanged(this, value));
             });
         }
+    }
+
+    private List<VOCStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof VOCStatus).map(l -> (VOCStatus) l).collect(Collectors.toList());
     }
 
     @Override

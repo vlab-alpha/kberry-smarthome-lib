@@ -7,12 +7,13 @@ import tools.vlab.kberry.core.devices.Command;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
 
+import java.util.List;
 import java.util.Vector;
+import java.util.stream.Collectors;
 
 // FIXME: manchmal reagieren die Jalousien nicht, es soll noch ein timer prüfen, ob es sich geändert hat (wenn keien Exception geschmissen worden ist) und dann soll nochmal getriggert werden!!!
 public class Jalousie extends KNXDevice {
 
-    private final Vector<JalousieStatus> listener = new Vector<>();
     private final PersistentValue<Integer> currentPosition;
 
     private Jalousie(PositionPath positionPath,Integer refreshData) {
@@ -28,10 +29,6 @@ public class Jalousie extends KNXDevice {
 
     public static Jalousie at(PositionPath positionPath) {
         return new Jalousie(positionPath, null);
-    }
-
-    public void addListener(JalousieStatus position) {
-        this.listener.add(position);
     }
 
     public void up() {
@@ -63,9 +60,13 @@ public class Jalousie extends KNXDevice {
         switch (command) {
             case SHUTTER_POSITION_ACTUAL_STATUS -> dataPoint.getUInt8().ifPresent(value -> {
                 this.currentPosition.set(value);
-                listener.forEach(status-> status.positionChanged(this, value));
+                getListener().forEach(status-> status.positionChanged(this, value));
             });
         }
+    }
+
+    private List<JalousieStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof JalousieStatus).map(l -> (JalousieStatus) l).collect(Collectors.toList());
     }
 
     @Override

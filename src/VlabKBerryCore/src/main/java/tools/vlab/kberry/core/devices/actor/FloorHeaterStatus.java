@@ -1,8 +1,9 @@
 package tools.vlab.kberry.core.devices.actor;
 
 import tools.vlab.kberry.core.devices.HeaterMode;
+import tools.vlab.kberry.core.devices.StatusListener;
 
-public interface FloorHeaterStatus {
+public interface FloorHeaterStatus extends StatusListener {
 
     void actuatorPositionChanged(FloorHeater floorHeater, int position);
 

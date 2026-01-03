@@ -10,6 +10,7 @@ import tools.vlab.kberry.core.devices.PersistentValue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static tools.vlab.kberry.core.devices.Command.*;
 
@@ -18,7 +19,6 @@ public class FloorHeater extends KNXDevice {
     private final PersistentValue<Integer> currentPosition;
     private final PersistentValue<Integer> currentMode;
     private final PersistentValue<Float> currentSetpoint;
-    private final List<FloorHeaterStatus> listener = new ArrayList<>();
 
     private FloorHeater(PositionPath positionPath,Integer refreshData) {
         super(positionPath,
@@ -34,12 +34,8 @@ public class FloorHeater extends KNXDevice {
         this.currentSetpoint = new PersistentValue<>(positionPath, "currentSetpoint", 0.0f, Float.class);
     }
 
-    public FloorHeater at(PositionPath positionPath) {
+    public static FloorHeater at(PositionPath positionPath) {
         return new FloorHeater(positionPath, null);
-    }
-
-    public void addListener(FloorHeaterStatus status) {
-        this.listener.add(status);
     }
 
     public void setSetpoint(float temperature) {
@@ -68,17 +64,21 @@ public class FloorHeater extends KNXDevice {
         switch (command) {
             case HVAC_SETPOINT_TEMPERATURE_ACTUAL -> dataPoint.getFloat9().ifPresent(value -> {
                 this.currentSetpoint.set(value);
-                this.listener.forEach(status -> status.setPointTemperatureChanged(this, value));
+                this.getListener().forEach(status -> status.setPointTemperatureChanged(this, value));
             });
             case HVAC_OPERATING_MODE_ACTUAL -> dataPoint.getUInt8().ifPresent(value -> {
                 this.currentMode.set(value);
-                this.listener.forEach(status -> status.setModeChanged(this, HeaterMode.valueOf(value)));
+                this.getListener().forEach(status -> status.setModeChanged(this, HeaterMode.valueOf(value)));
             });
             case HVAC_ACTUATOR_POSITION_ACTUAL -> dataPoint.getUInt8().ifPresent(value -> {
                 this.currentPosition.set(value);
-                this.listener.forEach(status -> status.actuatorPositionChanged(this, value));
+                this.getListener().forEach(status -> status.actuatorPositionChanged(this, value));
             });
         }
+    }
+
+    private List<FloorHeaterStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof FloorHeaterStatus).map(l -> (FloorHeaterStatus) l).collect(Collectors.toList());
     }
 
     @Override

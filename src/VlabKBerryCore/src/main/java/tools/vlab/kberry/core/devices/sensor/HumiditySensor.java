@@ -7,13 +7,13 @@ import tools.vlab.kberry.core.devices.Command;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
 
-import java.util.Vector;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static tools.vlab.kberry.core.devices.Command.HUMIDITY_ACTUAL;
 
 public class HumiditySensor extends KNXDevice {
 
-    private final Vector<HumidityStatus> listener = new Vector<>();
     private final PersistentValue<Float> currentHumidity;
 
     private HumiditySensor(PositionPath positionPath,Integer refreshData) {
@@ -29,10 +29,6 @@ public class HumiditySensor extends KNXDevice {
         return new HumiditySensor(positionPath,refreshIntervallMs);
     }
 
-    public void addListener(HumidityStatus listener) {
-        this.listener.add(listener);
-    }
-
     public float getCurrentHumidity() {
         return currentHumidity.get();
     }
@@ -42,9 +38,13 @@ public class HumiditySensor extends KNXDevice {
         switch (command) {
             case HUMIDITY_ACTUAL -> dataPoint.getFloat9().ifPresent(value -> {
                 this.currentHumidity.set(value);
-                listener.forEach(humidityStatus -> humidityStatus.humidityChanged(this, value));
+                getListener().forEach(humidityStatus -> humidityStatus.humidityChanged(this, value));
             });
         }
+    }
+
+    private List<HumidityStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof HumidityStatus).map(l -> (HumidityStatus) l).collect(Collectors.toList());
     }
 
     @Override

@@ -7,11 +7,11 @@ import tools.vlab.kberry.core.devices.Command;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
 
-import java.util.Vector;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class TemperatureSensor extends KNXDevice {
 
-    private final Vector<TemperatureStatus> listener = new Vector<>();
     private final PersistentValue<Float> currentTemp;
 
     private TemperatureSensor(PositionPath positionPath,Integer refreshData) {
@@ -27,10 +27,6 @@ public class TemperatureSensor extends KNXDevice {
         return new TemperatureSensor(positionPath, refreshIntervallMs);
     }
 
-    public void addListener(TemperatureStatus listener) {
-        this.listener.add(listener);
-    }
-
     public float getCurrentTemp() {
         return currentTemp.get();
     }
@@ -40,9 +36,13 @@ public class TemperatureSensor extends KNXDevice {
         switch (command) {
             case TEMPERATURE_ACTUAL -> dataPoint.getFloat9().ifPresent(value -> {
                 this.currentTemp.set(value);
-                listener.forEach(lightStatus -> lightStatus.temperatureChanged(this, value));
+                getListener().forEach(lightStatus -> lightStatus.temperatureChanged(this, value));
             });
         }
+    }
+
+    private List<TemperatureStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof TemperatureStatus).map(l -> (TemperatureStatus) l).collect(Collectors.toList());
     }
 
     @Override

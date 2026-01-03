@@ -1,8 +1,9 @@
 package tools.vlab.kberry.core.devices.actor;
 
 import tools.vlab.kberry.core.devices.RGB;
+import tools.vlab.kberry.core.devices.StatusListener;
 
-public interface LedStatus {
+public interface LedStatus extends StatusListener {
 
     void colorChanged(Led led, RGB color);
 

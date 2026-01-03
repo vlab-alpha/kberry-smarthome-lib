@@ -1,5 +1,6 @@
 package tools.vlab.kberry.core.devices.sensor;
 
+import lombok.Getter;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.baos.BAOSReadException;
 import tools.vlab.kberry.core.baos.messages.os.DataPoint;
@@ -7,12 +8,12 @@ import tools.vlab.kberry.core.devices.Command;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
 
-import java.util.Vector;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class PresenceSensor extends KNXDevice {
 
-    private final Vector<PresenceStatus> listener = new Vector<>();
     private final PersistentValue<Long> lastTrueMS;
     private final AtomicBoolean currentValue = new AtomicBoolean(false);
 
@@ -23,10 +24,6 @@ public class PresenceSensor extends KNXDevice {
 
     public static PresenceSensor at(PositionPath positionPath) {
         return new PresenceSensor(positionPath, null);
-    }
-
-    public void addListener(PresenceStatus listener) {
-        this.listener.add(listener);
     }
 
     public long getLastPresentSecond() {
@@ -48,14 +45,21 @@ public class PresenceSensor extends KNXDevice {
                     if (newValue) {
                         lastTrueMS.set(currentTime);
                     }
-                    listener.forEach(presenceStatus -> presenceStatus.presenceChanged(this, newValue));
+                    this.getListener().forEach(presenceStatus -> presenceStatus.presenceChanged(this, newValue));
                 }
             });
         }
+    }
+
+    private List<PresenceStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof PresenceStatus).map(l -> (PresenceStatus) l).collect(Collectors.toList());
     }
 
     @Override
     public void load() throws BAOSReadException {
         this.get(Command.PRESENCE_STATUS).flatMap(DataPoint::getBoolean).ifPresent(currentValue::set);
     }
+
+
+
 }

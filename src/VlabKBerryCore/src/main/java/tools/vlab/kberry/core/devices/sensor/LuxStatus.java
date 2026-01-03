@@ -1,6 +1,8 @@
 package tools.vlab.kberry.core.devices.sensor;
 
-public interface LuxStatus {
+import tools.vlab.kberry.core.devices.StatusListener;
+
+public interface LuxStatus extends StatusListener {
 
     void luxChanged(LuxSensor sensor, float lux);
 }

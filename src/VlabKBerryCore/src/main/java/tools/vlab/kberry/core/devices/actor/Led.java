@@ -8,11 +8,12 @@ import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
 import tools.vlab.kberry.core.devices.RGB;
 
+import java.util.List;
 import java.util.Vector;
+import java.util.stream.Collectors;
 
 public class Led extends KNXDevice {
 
-    private final Vector<LedStatus> listener = new Vector<>();
     private final PersistentValue<Boolean> status;
     private final PersistentValue<RGB> color;
 
@@ -28,12 +29,8 @@ public class Led extends KNXDevice {
         this.color = new PersistentValue<>(positionPath, "jalousieCurrentPosition", new RGB(0, 0, 0), RGB.class);
     }
 
-    public Led at(PositionPath positionPath) {
+    public static Led at(PositionPath positionPath) {
         return new Led(positionPath, null);
-    }
-
-    public void addListener(LedStatus ledStatus) {
-        this.listener.add(ledStatus);
     }
 
     public boolean isOn() {
@@ -61,13 +58,17 @@ public class Led extends KNXDevice {
         switch (command) {
             case ON_OFF_SWITCH -> dataPoint.getBoolean().ifPresent(value -> {
                 this.status.set(value);
-                listener.forEach(status -> status.isOnChanged(this, value));
+                getListener().forEach(status -> status.isOnChanged(this, value));
             });
             case RGB_COLOR_STATUS -> dataPoint.getRGB().ifPresent(value -> {
                 this.color.set(value);
-                listener.forEach(status -> status.colorChanged(this, value));
+                getListener().forEach(status -> status.colorChanged(this, value));
             });
         }
+    }
+
+    private List<LedStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof LedStatus).map(l -> (LedStatus) l).collect(Collectors.toList());
     }
 
     @Override

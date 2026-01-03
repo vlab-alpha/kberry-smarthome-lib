@@ -6,17 +6,21 @@ import tools.vlab.kberry.core.baos.messages.os.DataPoint;
 import tools.vlab.kberry.core.devices.Command;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.PersistentValue;
+import tools.vlab.kberry.core.devices.sensor.ElectricStatus;
 
+import java.util.List;
 import java.util.Vector;
+import java.util.stream.Collectors;
 
 public class OnOffDevice extends KNXDevice {
 
-    private final Vector<OnOffStatus> listener = new Vector<>();
+    private final PersistentValue<Long> lastTrueMS;
     private final PersistentValue<Boolean> currentValue;
 
     protected OnOffDevice(PositionPath positionPath, Integer refreshData, String type) {
         super(positionPath, refreshData, Command.ON_OFF_SWITCH, Command.ON_OFF_STATUS);
         this.currentValue = new PersistentValue<>(positionPath, type + "status", false, Boolean.class);
+        this.lastTrueMS = new PersistentValue<>(positionPath, "presence", 0L, Long.class);
     }
 
     public void on() {
@@ -31,16 +35,28 @@ public class OnOffDevice extends KNXDevice {
         return currentValue.get();
     }
 
+    public long getLastPresentSecond() {
+        return this.lastTrueMS.get() != 0 ? ((System.currentTimeMillis() - this.lastTrueMS.get()) / 1000) : -1;
+    }
+
     @Override
     public void received(Command command, DataPoint dataPoint) {
         switch (command) {
             case ON_OFF_STATUS, ON_OFF_SWITCH -> dataPoint.getBoolean().ifPresent(value -> {
                 boolean oldOrCurrentValue = this.currentValue.getAndSet(value);
+                long currentTime = System.currentTimeMillis();
                 if (oldOrCurrentValue != value) {
-                    listener.forEach(lightStatus -> lightStatus.onOffStatusChanged(this, value));
+                    if (value) {
+                        lastTrueMS.set(currentTime);
+                    }
+                    getListener().forEach(lightStatus -> lightStatus.onOffStatusChanged(this, value));
                 }
             });
         }
+    }
+
+    private List<OnOffStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof OnOffStatus).map(l -> (OnOffStatus) l).collect(Collectors.toList());
     }
 
     @Override
@@ -48,8 +64,5 @@ public class OnOffDevice extends KNXDevice {
         this.get(Command.ON_OFF_SWITCH).flatMap(DataPoint::getBoolean).ifPresent(this.currentValue::set);
     }
 
-    public void addListener(OnOffStatus lightStatus) {
-        this.listener.add(lightStatus);
-    }
 
 }

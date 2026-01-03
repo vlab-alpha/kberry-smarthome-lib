@@ -8,11 +8,12 @@ import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.LuxCategory;
 import tools.vlab.kberry.core.devices.PersistentValue;
 
+import java.util.List;
 import java.util.Vector;
+import java.util.stream.Collectors;
 
 public class LuxSensor extends KNXDevice {
 
-    private final Vector<LuxStatus> listener = new Vector<>();
     private final PersistentValue<Float> currentLux;
 
     private LuxSensor(PositionPath positionPath, Integer refreshData) {
@@ -28,10 +29,6 @@ public class LuxSensor extends KNXDevice {
         return new LuxSensor(positionPath, refreshIntervallMs);
     }
 
-    public void addListener(LuxStatus listener) {
-        this.listener.add(listener);
-    }
-
     public float getCurrentLux() {
         return currentLux.get();
     }
@@ -45,9 +42,13 @@ public class LuxSensor extends KNXDevice {
         switch (command) {
             case LUX_VALUE_ACTUAL -> dataPoint.getFloat9().ifPresent(value -> {
                 this.currentLux.set(value);
-                listener.forEach(luxStatus -> luxStatus.luxChanged(this, value));
+                getListener().forEach(luxStatus -> luxStatus.luxChanged(this, value));
             });
         }
+    }
+
+    private List<LuxStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof LuxStatus).map(l -> (LuxStatus) l).collect(Collectors.toList());
     }
 
     @Override

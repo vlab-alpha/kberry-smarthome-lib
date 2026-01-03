@@ -1,6 +1,8 @@
 package tools.vlab.kberry.core.devices.sensor;
 
-public interface VOCStatus {
+import tools.vlab.kberry.core.devices.StatusListener;
+
+public interface VOCStatus extends StatusListener {
 
     void vocChanged(VOCSensor sensor, float voc);
 

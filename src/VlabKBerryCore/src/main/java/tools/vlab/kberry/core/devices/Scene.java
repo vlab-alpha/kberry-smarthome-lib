@@ -17,7 +17,7 @@ public class Scene extends KNXDevice {
         super(positionPath, null, SCENE_ACTIVATION);
     }
 
-    public Scene at(PositionPath positionPath) {
+    public static Scene at(PositionPath positionPath) {
         return new Scene(positionPath);
     }
 

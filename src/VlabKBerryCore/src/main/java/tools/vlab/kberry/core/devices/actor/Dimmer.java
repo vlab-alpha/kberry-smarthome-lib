@@ -9,10 +9,10 @@ import tools.vlab.kberry.core.devices.PersistentValue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Dimmer extends KNXDevice {
 
-    private final List<DimmerStatus> listener = new ArrayList<>();
     private final PersistentValue<Integer> currentBrightness;
     private final PersistentValue<Boolean> currentStatus;
 
@@ -30,10 +30,6 @@ public class Dimmer extends KNXDevice {
 
     public static Dimmer at(PositionPath positionPath) {
         return new Dimmer(positionPath, null);
-    }
-
-    public void addListener(DimmerStatus status) {
-        this.listener.add(status);
     }
 
     public void turnOn() {
@@ -61,14 +57,18 @@ public class Dimmer extends KNXDevice {
         switch (command) {
             case ON_OFF_STATUS -> dataPoint.getBoolean().ifPresent(value -> {
                 currentStatus.set(value);
-                listener.forEach(status -> status.isOnChanged(this, value));
+                getListener().forEach(status -> status.isOnChanged(this, value));
 
             });
             case BRIGHTNESS_STATUS -> dataPoint.getUInt8().ifPresent(value -> {
                 currentBrightness.set(value);
-                listener.forEach(status -> status.brightnessChanged(this, value));
+                getListener().forEach(status -> status.brightnessChanged(this, value));
             });
         }
+    }
+
+    private List<DimmerStatus> getListener() {
+        return this.listeners.stream().filter(l -> l instanceof DimmerStatus).map(l -> (DimmerStatus) l).collect(Collectors.toList());
     }
 
 

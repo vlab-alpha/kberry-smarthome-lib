@@ -1,6 +1,8 @@
 package tools.vlab.kberry.core.devices.sensor;
 
-public interface TemperatureStatus {
+import tools.vlab.kberry.core.devices.StatusListener;
+
+public interface TemperatureStatus extends StatusListener {
 
     void temperatureChanged(TemperatureSensor sensor, float celsius);
 }
